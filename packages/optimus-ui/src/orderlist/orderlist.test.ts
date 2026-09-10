@@ -473,10 +473,7 @@ describe('OrderList', () => {
             orderList.moveUp();
             await fixture.whenStable();
 
-            expect(orderList.value?.[0]).toEqual(initialOrder[0]);
-            expect(orderList.value?.[1]).toEqual(initialOrder[1]);
-            expect(orderList.value?.[2]).toEqual(initialOrder[3]);
-            expect(orderList.value?.[3]).toEqual(initialOrder[2]);
+            expect(orderList.value).toEqual([initialOrder[1], initialOrder[0], initialOrder[3], initialOrder[2], initialOrder[4]]);
             expect(component.onReorder).toHaveBeenCalledWith(component.selection);
         });
 
@@ -544,10 +541,7 @@ describe('OrderList', () => {
             orderList.moveUp();
             await fixture.whenStable();
 
-            expect(orderList.value?.[0]).toEqual(initialOrder[0]);
-            expect(orderList.value?.[1]).toEqual(initialOrder[1]);
-            expect(orderList.value?.[2]).toEqual(initialOrder[2]);
-            expect(orderList.value?.[3]).toEqual(initialOrder[4]);
+            expect(orderList.value).toEqual([initialOrder[0], initialOrder[2], initialOrder[1], initialOrder[4], initialOrder[3]]);
 
             expect(component.onReorder).toHaveBeenCalledWith(component.selection);
         });
@@ -912,8 +906,8 @@ describe('OrderList', () => {
             moveUpButton.nativeElement.click();
             await fixture.whenStable();
 
-            expect(orderList.value?.[0].name).toBe('Item 1');
-            expect(orderList.value?.[1].name).toBe('Item 2');
+            expect(orderList.value?.[0].name).toBe('Item 2');
+            expect(orderList.value?.[1].name).toBe('Item 1');
             expect(orderList.value?.[2].name).toBe('Item 4');
             expect(orderList.value?.[3].name).toBe('Item 3');
         });
@@ -971,6 +965,33 @@ describe('OrderList', () => {
                     rating: 5
                 }
             ]);
+        });
+
+        it('should reorder a single item within filtered options', () => {
+            component.dragdrop = true;
+            component.filterBy = 'category';
+            fixture.detectChanges();
+            orderList.filterValue = 'Category 1';
+            orderList.filter();
+            vi.spyOn(component, 'onReorder').mockImplementation(() => {});
+
+            const dragDropEvent: CdkDragDrop<string[]> = {
+                previousIndex: 0,
+                currentIndex: 1,
+                item: { data: component.products[0] } as any,
+                container: {} as any,
+                previousContainer: {} as any,
+                isPointerOverContainer: true,
+                distance: { x: 0, y: 50 },
+                dropPoint: { x: 0, y: 50 },
+                event: new MouseEvent('mouseup')
+            };
+
+            orderList.onDrop(dragDropEvent);
+
+            expect(component.products.map((product) => product.id)).toEqual(['2', '3', '1', '4', '5']);
+            expect(orderList.visibleOptions?.map((product) => product.id)).toEqual(['3', '1']);
+            expect(component.onReorder).toHaveBeenCalledWith([component.products[2]]);
         });
 
         it('should not handle drop event when indices are same', () => {
