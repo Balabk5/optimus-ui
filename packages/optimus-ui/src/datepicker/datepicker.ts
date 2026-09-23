@@ -39,6 +39,7 @@ import { Ripple } from '@openng/optimus-ui/ripple';
 import { Nullable, VoidListener } from '@openng/optimus-ui/ts-helpers';
 import {
     DatePickerButtonBarTemplateContext,
+    DatePickerDateMeta,
     DatePickerDateTemplateContext,
     DatePickerDecadeTemplateContext,
     DatePickerDisabledDateTemplateContext,
@@ -247,9 +248,9 @@ const DATEPICKER_INSTANCE = new InjectionToken<DatePicker>('DATEPICKER_INSTANCE'
                                     </ng-template>
                                 </p-button>
                             </div>
-                            <table [class]="cx('dayView')" role="grid" *ngIf="currentView === 'date'" [pBind]="ptm('table')">
+                            <table [class]="cx('dayView')" role="presentation" *ngIf="currentView === 'date'" [pBind]="ptm('table')">
                                 <thead [pBind]="ptm('tableHeader')">
-                                    <tr [pBind]="ptm('tableHeaderRow')">
+                                    <tr [pBind]="ptm('tableHeaderRow')" role="row" v>
                                         <th *ngIf="showWeek" [class]="cx('weekHeader')" [pBind]="ptm('weekHeader')">
                                             <span [pBind]="ptm('weekHeaderLabel')">{{ getTranslation('weekHeader') }}</span>
                                         </th>
@@ -259,13 +260,13 @@ const DATEPICKER_INSTANCE = new InjectionToken<DatePicker>('DATEPICKER_INSTANCE'
                                     </tr>
                                 </thead>
                                 <tbody [pBind]="ptm('tableBody')">
-                                    <tr *ngFor="let week of month.dates; let j = index" [pBind]="ptm('tableBodyRow')">
+                                    <tr *ngFor="let week of month.dates; let j = index" [pBind]="ptm('tableBodyRow')" role="row">
                                         <td *ngIf="showWeek" [class]="cx('weekNumber')" [pBind]="ptm('weekNumber')">
-                                            <span [class]="cx('weekLabelContainer')" [pBind]="ptm('weekLabelContainer')">
+                                            <span [class]="cx('weekLabelContainer')" role="gridcell" [pBind]="ptm('weekLabelContainer')">
                                                 {{ month.weekNumbers[j] }}
                                             </span>
                                         </td>
-                                        <td *ngFor="let date of week" [attr.aria-label]="date.day" [class]="cx('dayCell', { date })" [pBind]="ptm('dayCell')">
+                                        <td *ngFor="let date of week" [class]="cx('dayCell', { date })" [pBind]="ptm('dayCell')">
                                             <ng-container *ngIf="date.otherMonth ? showOtherMonths : true">
                                                 <span
                                                     [ngClass]="dayClass(date)"
@@ -273,20 +274,17 @@ const DATEPICKER_INSTANCE = new InjectionToken<DatePicker>('DATEPICKER_INSTANCE'
                                                     draggable="false"
                                                     [attr.data-date]="formatDateKey(formatDateMetaToDate(date))"
                                                     (keydown)="onDateCellKeydown($event, date, i)"
+                                                    [attr.tabindex]="isDateFocusable(date) ? 0 : -1"
+                                                    [attr.aria-label]="getDateAriaLabel(date)"
+                                                    [attr.aria-selected]="date.selectable ? isSelected(date) : null"
+                                                    [attr.aria-disabled]="!date.selectable ? true : null"
+                                                    [attr.aria-current]="date.today ? 'date' : null"
+                                                    role="gridcell"
                                                     pRipple
                                                     [pBind]="ptm('day')"
                                                 >
-                                                    <ng-container *ngIf="!dateTemplate && !_dateTemplate && (date.selectable || (!disabledDateTemplate && !_disabledDateTemplate))">{{ date.day }}</ng-container>
-                                                    <ng-container *ngIf="date.selectable || (!disabledDateTemplate && !_disabledDateTemplate)">
-                                                        <ng-container *ngTemplateOutlet="dateTemplate || _dateTemplate; context: { $implicit: date }"></ng-container>
-                                                    </ng-container>
-                                                    <ng-container *ngIf="!date.selectable">
-                                                        <ng-container *ngTemplateOutlet="disabledDateTemplate || _disabledDateTemplate; context: { $implicit: date }"></ng-container>
-                                                    </ng-container>
-                                                </span>
-                                                <div *ngIf="isSelected(date)" class="p-hidden-accessible" aria-live="polite">
                                                     {{ date.day }}
-                                                </div>
+                                                </span>
                                             </ng-container>
                                         </td>
                                     </tr>
@@ -1277,6 +1275,8 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
     _defaultDate!: Date;
 
     _focusKey: Nullable<string> = null;
+
+    focusedDate: Date | null = null;
 
     private window: Window;
 
@@ -3821,6 +3821,24 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
         this.updateInputfield();
         this.updateUI();
         this.cd.markForCheck();
+    }
+
+    getDateAriaLabel(date: DatePickerDateMeta): string {
+        const jsDate = this.formatDateMetaToDate(date);
+        const formatted = new Intl.DateTimeFormat(undefined, {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        }).format(jsDate);
+
+        return date.selectable ? formatted : `${formatted}, unavailable`;
+    }
+
+    isDateFocusable(date: any): boolean {
+        if (this.focusedDate) return this.isDateEquals(this.focusedDate, date);
+        if (this.value) return !!this.isSelected(date);
+        return date.today || (date.day === 1 && !date.otherMonth);
     }
 
     onDestroy() {
