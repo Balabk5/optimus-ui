@@ -168,11 +168,12 @@ const DATEPICKER_INSTANCE = new InjectionToken<DatePicker>('DATEPICKER_INSTANCE'
                 (click)="onOverlayClick($event)"
                 [pBind]="ptm('panel')"
             >
+                <span class="p-hidden-accessible" role="status" aria-live="polite" aria-atomic="true">{{ navigationAnnouncement }}</span>
                 <ng-content select="p-header"></ng-content>
                 <ng-container *ngTemplateOutlet="headerTemplate || _headerTemplate"></ng-container>
                 <ng-container *ngIf="!timeOnly">
                     <div [class]="cx('calendarContainer')" [pBind]="ptm('calendarContainer')">
-                        <div [class]="cx('calendar')" *ngFor="let month of months; let i = index" [pBind]="ptm('calendar')">
+                        <div [class]="cx('calendar')" *ngFor="let month of months; let i = index; trackBy: trackByMonthIndex" [pBind]="ptm('calendar')">
                             <div [class]="cx('header')" [pBind]="ptm('header')">
                                 <p-button
                                     rounded
@@ -250,7 +251,7 @@ const DATEPICKER_INSTANCE = new InjectionToken<DatePicker>('DATEPICKER_INSTANCE'
                             </div>
                             <table [class]="cx('dayView')" role="presentation" *ngIf="currentView === 'date'" [pBind]="ptm('table')">
                                 <thead [pBind]="ptm('tableHeader')">
-                                    <tr [pBind]="ptm('tableHeaderRow')" role="row" v>
+                                    <tr [pBind]="ptm('tableHeaderRow')" role="row">
                                         <th *ngIf="showWeek" [class]="cx('weekHeader')" [pBind]="ptm('weekHeader')">
                                             <span [pBind]="ptm('weekHeaderLabel')">{{ getTranslation('weekHeader') }}</span>
                                         </th>
@@ -1260,6 +1261,8 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
 
     currentView: Nullable<string>;
 
+    navigationAnnouncement: string = '';
+
     attributeSelector: Nullable<string>;
 
     panelId: Nullable<string>;
@@ -1585,11 +1588,13 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
             this.decrementYear();
             setTimeout(() => {
                 this.updateFocus();
+                this.updateNavigationAnnouncement();
             }, 1);
         } else if (this.currentView === 'year') {
             this.decrementDecade();
             setTimeout(() => {
                 this.updateFocus();
+                this.updateNavigationAnnouncement();
             }, 1);
         } else {
             if (this.currentMonth === 0) {
@@ -1601,6 +1606,7 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
 
             this.onMonthChange.emit({ month: this.currentMonth + 1, year: this.currentYear });
             this.createMonths(this.currentMonth, this.currentYear);
+            this.updateNavigationAnnouncement();
         }
     }
 
@@ -1616,11 +1622,13 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
             this.incrementYear();
             setTimeout(() => {
                 this.updateFocus();
+                this.updateNavigationAnnouncement();
             }, 1);
         } else if (this.currentView === 'year') {
             this.incrementDecade();
             setTimeout(() => {
                 this.updateFocus();
+                this.updateNavigationAnnouncement();
             }, 1);
         } else {
             if (this.currentMonth === 11) {
@@ -1632,7 +1640,21 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
 
             this.onMonthChange.emit({ month: this.currentMonth + 1, year: this.currentYear });
             this.createMonths(this.currentMonth, this.currentYear);
+            this.updateNavigationAnnouncement();
         }
+    }
+
+    updateNavigationAnnouncement() {
+        setTimeout(() => {
+            if (this.currentView === 'year') {
+                const years = this.yearPickerValues();
+                this.navigationAnnouncement = `${years[0]} - ${years[years.length - 1]}`;
+            } else {
+                this.navigationAnnouncement = `${this.getMonthName(this.currentMonth)} ${this.currentYear}`;
+            }
+
+            this.cd.markForCheck();
+        });
     }
 
     decrementYear() {
@@ -2179,6 +2201,10 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
         return this.config.getTranslation('monthNames')[index];
     }
 
+    trackByMonthIndex(index: number) {
+        return index;
+    }
+
     getYear(month: any) {
         return this.currentView === 'month' ? this.currentYear : month.year;
     }
@@ -2624,8 +2650,9 @@ export class DatePicker extends BaseInput<DatePickerPassThrough> {
             if (this.navigationState.button) {
                 this.initFocusableCell();
 
-                if (this.navigationState.backward) (findSingle(this.contentViewChild.nativeElement, '.p-datepicker-prev-button') as any).focus();
-                else (findSingle(this.contentViewChild.nativeElement, '.p-datepicker-next-button') as any).focus();
+                const navigationButtons = find(this.contentViewChild.nativeElement, this.navigationState.backward ? '.p-datepicker-prev-button' : '.p-datepicker-next-button');
+                const navigationButton = (this.navigationState.backward ? navigationButtons[0] : navigationButtons[navigationButtons.length - 1]) as HTMLElement | undefined;
+                navigationButton?.focus();
             } else {
                 if (this.navigationState.backward) {
                     let cells;
